@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {analyze,architecture,sample} from './analyzer.js';
+import {reviewSnapshot,approveSnapshot} from './generator.js';
+import {migrationReport,pendingReviews} from './migration-report.js';
+test('migration report requires reviewed applicability and escapes repository content',async()=>{
+ const report=analyze(sample),plan=architecture(report,'modular');
+ assert.ok(pendingReviews(plan).length);
+ assert.throws(()=>migrationReport(reviewSnapshot(sample,report,plan,''),null),/Review every/);
+ plan.assessment.findings.forEach(f=>{f.decision='Applicable';});
+ const finding=plan.assessment.findings[0];finding.decision='Not applicable';finding.notes='';
+ assert.equal(pendingReviews(plan).length,1);finding.notes='Reviewed: <script>alert(1)</script>';
+ const snapshot=reviewSnapshot(sample,report,plan,'Business review');
+ const draft=migrationReport(snapshot,null);
+ assert.match(draft,/approval pending/);assert.match(draft,/Current architecture/);assert.match(draft,/Proposed architecture/);
+ assert.ok(draft.includes('&lt;script&gt;'));assert.ok(!draft.includes('<script>'));
+ const approval=await approveSnapshot(snapshot);
+ assert.match(migrationReport(snapshot,approval),/Architecture approved/);
+ assert.match(migrationReport(reviewSnapshot(sample,report,plan,'Changed'),approval),/approval pending/);
+});

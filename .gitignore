@@ -1,0 +1,7 @@
+.tools/
+server*.log
+tmp/
+output/
+node_modules/
+.env
+.env.*
