@@ -74,6 +74,7 @@ export function createMigrationPdf(snapshot,approval,JsPDF){
   ensure(Math.min(height,245));heading(f.title,14);paragraph(fields[0],9,blue);paragraph(fields[1]);paragraph('Recommendation: '+f.action);if(f.when)paragraph('Applicability: '+f.when);paragraph('Trade-off: '+f.tradeoff);paragraph('Evidence:',9,navy);bullets(evidence);
  }
  page('05 / Business behavior and traceability');
+ if(plan.ai){heading('AI interpretation / '+plan.ai.model,14);for(const rule of report.aiBusinessRules||[]){ensure(35);heading(rule.name,12);paragraph(rule.description);bullets(rule.evidence);}paragraph('AI interpretations require business-owner and source validation. No runtime equivalence has been established.');}
  if(isIdea)bullets(report.requirements.map(r=>r.ref+' - '+r.value));
  for(const f of report.flows){ensure(35);heading(f.name,14);paragraph(f.file+(f.uncertain?' / partial control-flow analysis':''));bullets(f.nodes.map(n=>n.label+' | '+n.ref));}
  page(isIdea?'06 / Implementation readiness':'06 / Migration readiness');paragraph(isIdea?'Design proposal only. Business implementation, API contracts and acceptance tests remain to be developed.':coverage.supported.length+' executable flows / '+coverage.blocked.length+' blocked flows',13,navy);

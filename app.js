@@ -3,6 +3,7 @@ import {translationReport} from './translator.js';
 import {pendingReviews} from './migration-report.js';
 import {createMigrationPdf} from './report-pdf.js';
 import {IdeaDesigner} from './idea-ui.js';
+import {AIControls,AIGeneration,aiRequest} from './ai-ui.js';
 import React,{useState} from './vendor/react.js';
 import {createRoot} from './vendor/react-dom.js';
 import {analyze,edges,architecture,sample} from './analyzer.js';
@@ -19,8 +20,9 @@ function App(){
  function invalidate(){if(approval)setStatus('Design changed. Review and approve the updated proposal.');setApproval(null);setReviewed(false);}
  async function approve(){
   if(!reviewed||!plan)return;
-  const receipt=await approveSnapshot(snapshot);
-  setApproval(receipt);setStatus('Architecture approved. Generation remains subject to the implementation coverage shown below.');
+  try{const receipt=await approveSnapshot(snapshot);
+  const backend=plan.ai?await aiRequest('approve',{snapshot}):{};
+  setApproval({...receipt,...backend});setStatus('Architecture approved. Generation remains subject to the implementation coverage shown below.');}catch(error){setStatus(error.message);}
  }
  function downloadReport(){
   try{
@@ -64,7 +66,7 @@ function App(){
  h('p',{className:'eyebrow'},'YOUR WORKSPACE'),
  ['Repository','Business flows','Architecture'].map((label,index)=>h('button',{key:label,className:workspace==='legacy'&&tab===index?'nav active':'nav',disabled:index>0&&!report||index===2&&!plan,onClick:()=>{setWorkspace('legacy');setTab(index);}},h('b',null,'0'+(index+1)),label)),
  h('button',{className:workspace==='idea'?'nav active':'nav',onClick:()=>setWorkspace('idea')},h('b',null,'04'),'New system'),
- h('div',{className:'privacy'},h('strong',null,'Local by design'),h('p',null,'Source files stay in this browser session. No repository upload or AI service connection.'))),
+ h('div',{className:'privacy'},h('strong',null,'You control AI access'),h('p',null,'Local analysis stays on this computer. OpenAI analysis sends selected inputs only when you enable it. API keys remain on the backend.'))),
  h('main',null,
  h('div',{className:'workspace-switch','aria-label':'Workspace mode'},h('button',{className:workspace==='legacy'?'':'secondary',onClick:()=>setWorkspace('legacy')},'Legacy migration'),h('button',{className:workspace==='idea'?'':'secondary',onClick:()=>setWorkspace('idea')},'New system from an idea')),
  h('div',{hidden:workspace!=='idea'},h(IdeaDesigner)),h('div',{hidden:workspace!=='legacy'},
@@ -78,6 +80,7 @@ function App(){
  h('div',{className:'settings'},h('label',null,'COBOL format ',h('select',{value:format,onChange:e=>{invalidate();setFormat(e.target.value);setReport(null);setPlan(null);}},h('option',{value:'fixed'},'Fixed columns 8–72'),h('option',{value:'free'},'Free format'))),h('span',null,files.length+' source files')),
  h('div',{className:'filelist'},files.map(f=>h('div',{key:f.name},'▤  '+f.name))),
  h('button',{disabled:!files.length||busy,onClick:runAnalysis},'Generate business flows →')),
+ tab===0&&h(AIControls,{payload:{mode:'legacy',files,format,deployment:scale},disabled:!files.length||busy,onResult:result=>{invalidate();setReport(result.report);setPlan(result.plan);setSelected(0);setTab(2);setStatus('OpenAI architecture ready. Review AI business rules, source evidence and all design findings.');}}),
  tab===1&&h(React.Fragment,null,
  h('div',{className:'metrics'},[['SOURCE FILES',report.inventory.length],['BUSINESS FLOWS',report.flows.length],['REVIEW GAPS',report.gaps.length]].map(([label,value])=>h('div',{className:'panel',key:label},h('small',null,label),h('strong',null,value)))),
  h('section',{className:'panel'},h('details',null,h('summary',null,'Explore whole-system dependencies'),h(SystemMap,{report}))),
@@ -112,6 +115,7 @@ function App(){
  h('p',null,!approved?'Step 1: Check the review acknowledgment, then select Approve architecture. Any design edit requires fresh approval.':'Step 1 complete: Current architecture approved.'),
  h('p',null,translation.blocked.length?'Step 2: '+translation.blocked.length+' flows cannot yet be translated safely. Review the source-specific reasons above. Approval cannot resolve unsupported COBOL syntax; those flows require translator implementation and parity tests.':translation.supported.length?'Step 2 complete: All analyzed flows have executable translation coverage.':'Step 2: No executable rules found. Check the COBOL format and source files, then analyze again.')),
  h('button',{className:'secondary',disabled:!approved,onClick:generate},translation.blocked.length||!translation.supported.length?'Check Spring Boot generation blockers':'Generate Spring Boot ZIP'),
+ plan.ai&&h(AIGeneration,{snapshot,approval:approved?approval:null}),
  approval&&approved&&h('p',{className:'status'},'Approved '+new Date(approval.approvedAt).toLocaleString()+' · SHA-256 '+approval.sha256),
  h('p',null,'Changing the repository, analysis, deployment objective, or review notes requires approval again. Approval applies only to this browser session.')) ),
  h('footer',null,'Legacy Flow Studio',h('span',null,'Discover → Understand → Design')))));

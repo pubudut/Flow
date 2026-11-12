@@ -1,0 +1,21 @@
+import React,{useEffect,useState,useRef} from './vendor/react.js';
+import {zipFiles} from './generator.js';
+const h=React.createElement;
+export async function aiRequest(action,body){
+ let response;try{response=await fetch('/api/ai/'+action,{method:'POST',headers:{'Content-Type':'application/json','X-Flow-Request':'1'},body:JSON.stringify(body)});}catch{throw Error('Cannot reach the Flow backend. Start node server.mjs and retry.');}
+ let data;try{data=await response.json();}catch{throw Error('AI backend is unavailable. Restart Flow with the updated server.mjs.');}
+ if(!response.ok)throw Error(data.error||'AI request failed.');return data;
+}
+export function AIControls({payload,onResult,disabled=false}){
+ const [config,setConfig]=useState(null),[consent,setConsent]=useState(false),[busy,setBusy]=useState(false),[status,setStatus]=useState('');
+ const latest=useRef(),mounted=useRef(true);latest.current=JSON.stringify(payload);
+ async function refresh(){try{const response=await fetch('/api/ai/status');if(!response.ok)throw Error();setConfig(await response.json());}catch{setStatus('Restart the updated backend to enable AI.');}}
+ useEffect(()=>{mounted.current=true;refresh();return ()=>{mounted.current=false;};},[]);
+ async function run(){const sent=latest.current;setBusy(true);setStatus('OpenAI is analyzing the input. This can take several minutes.');try{const result=await aiRequest('analyze',{...payload,consent});if(!mounted.current)return;if(sent!==latest.current)throw Error('Input changed during analysis. The stale response was discarded; analyze the updated input.');onResult(result);setStatus('AI proposal ready. Review evidence, business rules and design decisions before approval.');}catch(e){if(mounted.current)setStatus(e.message);}finally{if(mounted.current)setBusy(false);}}
+ return h('section',{className:'panel ai-panel'},h('span',{className:'badge'},'OPENAI / BACKEND INTEGRATION'),h('h2',null,payload.mode==='idea'?'Design with OpenAI':'Analyze legacy code with OpenAI'),h('p',null,config?.configured?'Backend connected to '+config.model+'. API usage may incur charges.':'Set OPENAI_API_KEY in the backend .env file, restart Flow, then refresh connection status. Your API key is never entered in this page.'),h('p',null,payload.mode==='idea'?'This sends the idea, requirements and proposed design to OpenAI.':'This sends the selected source files and static analysis to OpenAI. Maximum 240 KB of source per request; larger selections are rejected without truncation.'),h('label',null,h('input',{type:'checkbox',checked:consent,disabled:busy,onChange:e=>setConsent(e.target.checked)}),' Send this input and resulting approved design to OpenAI for analysis and code generation.'),h('button',{disabled:disabled||busy||!consent||!config?.configured,onClick:run},busy?'Analyzing…':payload.mode==='idea'?'Generate AI system design':'Generate AI architecture analysis'),h('button',{className:'secondary',disabled:busy,onClick:refresh},'Refresh AI connection'),status&&h('p',{role:'status',className:'status'},status));
+}
+export function AIGeneration({snapshot,approval}){
+ const [busy,setBusy]=useState(false),[status,setStatus]=useState('');
+ async function generate(){setBusy(true);setStatus('Generating the approved project with OpenAI…');try{const result=await aiRequest('generate',{snapshot,token:approval.token,consent:true});const url=URL.createObjectURL(zipFiles(result.files)),link=document.createElement('a');link.href=url;link.download='ai-spring-boot-project.zip';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);setStatus('Downloaded AI-generated project. It has not been built or tested. '+result.summary+' Limitations: '+(result.limitations.join('; ')||'Review generated code and run its tests.'));}catch(e){setStatus(e.message);}finally{setBusy(false);}}
+ return h('div',{className:'ai-generation'},h('button',{disabled:busy||!approval?.token||approval.snapshot!==snapshot,onClick:generate},busy?'Generating project…':'Generate Spring Boot with OpenAI'),h('p',null,'Requires backend approval of this exact design. Output includes source, tests, Dockerfile and review notes. Flow does not execute generated code.'),status&&h('p',{className:'status',role:'status'},status));
+}

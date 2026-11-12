@@ -1,5 +1,41 @@
 # Flow - System Design Studio
 
+## OpenAI backend integration
+
+Requires Node.js 22+. Copy `.env.example` to `.env` in the project directory, set
+`OPENAI_API_KEY` locally, and optionally set `OPENAI_MODEL` (default: `gpt-5.4`).
+Run `node server.mjs` and open http://127.0.0.1:5173. Restart the server after
+changing `.env`, then select **Refresh AI connection**. Never put a real key in
+frontend JavaScript, a screenshot, a commit, or chat. `.env` is ignored by Git;
+the server serves only allowlisted browser assets.
+
+The OpenAI panels are available for both legacy repositories and new ideas.
+Enable the data-sharing checkbox, then request AI analysis. Selected source or
+requirements are sent to OpenAI's Responses API, with structured outputs and
+`store: false`. This setting is not a promise of zero retention; consult your API
+organization's data controls. API usage may incur charges. This integration uses
+an API key, not browser automation or a ChatGPT web-session login.
+
+Review **AI business rules**, architecture and every evidence-backed design
+assessment, then approve. The backend binds approval to the exact source,
+analysis, edited architecture and notes for two hours. Changing any snapshot
+content invalidates generation; restarting the backend clears AI analysis and
+approval records. **Generate Spring Boot with OpenAI** returns a downloadable ZIP
+with Java sources, Maven configuration, tests, Dockerfile and review/limitation
+notes. Infrastructure files are requested when the approved architecture calls
+for them. Generated code is not automatically executed, built or certified; review
+it and run its tests before use. Incomplete responses, fabricated reference IDs,
+missing assessments and unsafe output paths are rejected without applying them.
+
+Limits: one active model request; 240 KB of selected legacy source; 600 KB total
+model input; 180-second request timeout; up to 100 generated files / 2 MB. Large
+repositories must be narrowed to a capability subset, not silently truncated.
+Local deterministic analysis remains available without a key. Tests mock OpenAI
+and exercise HTTP endpoints locally, so `node --test *.test.mjs` incurs no API use.
+
+API reference: https://developers.openai.com/api/docs/guides/structured-outputs
+Model reference: https://developers.openai.com/api/docs/models/gpt-5.4
+
 Design new applications from requirements or analyze legacy COBOL repositories
 for migration to Spring Boot. Review architecture, assess design applicability,
 approve snapshots and download illustrated PDF documentation. Supported legacy
@@ -21,11 +57,13 @@ Download the illustrated system design PDF after reviewing applicability; the
 document records whether architecture approval has occurred. Edits invalidate
 approval and changing requirements requires a new proposal.
 
-This feature runs locally using deterministic requirement matching and design
-templates. It is not an LLM or a complete domain-understanding engine. Suggested
+The local template option uses deterministic requirement matching. The separate
+OpenAI option uses a backend model request. Neither verifies complete domain
+understanding. Suggested
 patterns, adapters, service boundaries and data ownership require engineering
-validation. It does not turn a new idea into implemented Spring Boot business
-code; executable generation is limited to the supported legacy numeric rules.
+validation. Local templates do not generate new-system business code. AI-based
+designs support code generation only after backend approval, with limitations
+and unverified implementation status explicitly recorded.
 
 ## Run locally
 
@@ -34,7 +72,7 @@ Vendored browser dependencies: React / React DOM 19.2.0 (MIT), ELK.js 0.10.0
 headers. No package install or online service is required at runtime.
 
 Local React application for repository discovery, business flow review, and
-architecture proposals. Run with Node.js 18+.
+architecture proposals. Run with Node.js 22+.
 
     node server.mjs
 
@@ -42,8 +80,9 @@ Open http://127.0.0.1:5173. Choose a local repository folder or use the built-in
 pricing sample. Select fixed or free COBOL format, generate flows, review source
 evidence and gaps, then create the architecture proposal. Export downloads JSON.
 
-Source is processed in browser memory. React is vendored locally, so running the
-app requires no CDN or AI provider. Reloading clears the current analysis.
+Local analysis processes source in browser memory. OpenAI analysis is opt-in and
+sends selected input through the backend to OpenAI. React is vendored locally;
+the local workflow requires no CDN or AI provider. Reloading clears analysis.
 Repository selection requires a browser supporting folder input, such as Edge
 or Chrome. Supported imports use UTF-8, limited to 2,000 relevant files / 20 MB.
 Clone remote Git repositories locally before selecting them.

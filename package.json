@@ -1,1 +1,1 @@
-{"name":"legacy-flow-studio","private":true,"type":"module","scripts":{"start":"node server.mjs","test":"node --test *.test.mjs"}}
+{"name":"legacy-flow-studio","private":true,"type":"module","engines":{"node":">=22"},"scripts":{"start":"node server.mjs","test":"node --test *.test.mjs"}}
