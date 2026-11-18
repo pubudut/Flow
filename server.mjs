@@ -14,9 +14,9 @@ export function createServer(service=createAIService()){
    const pathname=decodeURIComponent(new URL(req.url,'http://'+host).pathname);
    if(pathname.startsWith('/api/')){
     if(req.headers.origin&&req.headers.origin!=='http://'+host){json(res,403,{error:'Same-origin request required.'});return;}
-    if(pathname==='/api/ai/status'&&req.method==='GET'){json(res,200,service.status());return;}
+    if(pathname==='/api/ai/status'&&req.method==='GET'){json(res,200,await service.status());return;}
     if(req.method!=='POST'||req.headers['x-flow-request']!=='1'||!req.headers['content-type']?.startsWith('application/json')){json(res,403,{error:'Use the local Flow UI for AI requests.'});return;}
-    if(!['/api/ai/analyze','/api/ai/approve','/api/ai/generate'].includes(pathname)){json(res,404,{error:'Unknown endpoint.'});return;}
+    if(!['/api/ai/analyze','/api/ai/approve','/api/ai/generate','/api/ai/connect','/api/ai/finishLogin','/api/ai/test'].includes(pathname)){json(res,404,{error:'Unknown endpoint.'});return;}
     const chunks=[];let bytes=0;for await(const chunk of req){bytes+=chunk.length;if(bytes>2000000){json(res,413,{error:'Request exceeds 2 MB.'});return;}chunks.push(chunk);}
     let body;try{body=JSON.parse(Buffer.concat(chunks).toString());}catch{json(res,400,{error:'Invalid JSON request.'});return;}
     const result=await service[pathname.split('/').pop()](body);json(res,200,result);return;

@@ -1,4 +1,4 @@
-import React,{useEffect,useState,useRef} from './vendor/react.js';
+import React,{useEffect,useState} from './vendor/react.js';
 import {zipFiles} from './generator.js';
 const h=React.createElement;
 export async function aiRequest(action,body){
@@ -6,16 +6,32 @@ export async function aiRequest(action,body){
  let data;try{data=await response.json();}catch{throw Error('AI backend is unavailable. Restart Flow with the updated server.mjs.');}
  if(!response.ok)throw Error(data.error||'AI request failed.');return data;
 }
-export function AIControls({payload,onResult,disabled=false}){
- const [config,setConfig]=useState(null),[consent,setConsent]=useState(false),[busy,setBusy]=useState(false),[status,setStatus]=useState('');
- const latest=useRef(),mounted=useRef(true);latest.current=JSON.stringify(payload);
- async function refresh(){try{const response=await fetch('/api/ai/status');if(!response.ok)throw Error();setConfig(await response.json());}catch{setStatus('Restart the updated backend to enable AI.');}}
- useEffect(()=>{mounted.current=true;refresh();return ()=>{mounted.current=false;};},[]);
- async function run(){const sent=latest.current;setBusy(true);setStatus('OpenAI is analyzing the input. This can take several minutes.');try{const result=await aiRequest('analyze',{...payload,consent});if(!mounted.current)return;if(sent!==latest.current)throw Error('Input changed during analysis. The stale response was discarded; analyze the updated input.');onResult(result);setStatus('AI proposal ready. Review evidence, business rules and design decisions before approval.');}catch(e){if(mounted.current)setStatus(e.message);}finally{if(mounted.current)setBusy(false);}}
- return h('section',{className:'panel ai-panel'},h('span',{className:'badge'},'OPENAI / BACKEND INTEGRATION'),h('h2',null,payload.mode==='idea'?'Design with OpenAI':'Analyze legacy code with OpenAI'),h('p',null,config?.configured?'Backend connected to '+config.model+'. API usage may incur charges.':'Set OPENAI_API_KEY in the backend .env file, restart Flow, then refresh connection status. Your API key is never entered in this page.'),h('p',null,payload.mode==='idea'?'This sends the idea, requirements and proposed design to OpenAI.':'This sends the selected source files and static analysis to OpenAI. Maximum 240 KB of source per request; larger selections are rejected without truncation.'),h('label',null,h('input',{type:'checkbox',checked:consent,disabled:busy,onChange:e=>setConsent(e.target.checked)}),' Send this input and resulting approved design to OpenAI for analysis and code generation.'),h('button',{disabled:disabled||busy||!consent||!config?.configured,onClick:run},busy?'Analyzing…':payload.mode==='idea'?'Generate AI system design':'Generate AI architecture analysis'),h('button',{className:'secondary',disabled:busy,onClick:refresh},'Refresh AI connection'),status&&h('p',{role:'status',className:'status'},status));
-}
 export function AIGeneration({snapshot,approval}){
  const [busy,setBusy]=useState(false),[status,setStatus]=useState('');
- async function generate(){setBusy(true);setStatus('Generating the approved project with OpenAI…');try{const result=await aiRequest('generate',{snapshot,token:approval.token,consent:true});const url=URL.createObjectURL(zipFiles(result.files)),link=document.createElement('a');link.href=url;link.download='ai-spring-boot-project.zip';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);setStatus('Downloaded AI-generated project. It has not been built or tested. '+result.summary+' Limitations: '+(result.limitations.join('; ')||'Review generated code and run its tests.'));}catch(e){setStatus(e.message);}finally{setBusy(false);}}
- return h('div',{className:'ai-generation'},h('button',{disabled:busy||!approval?.token||approval.snapshot!==snapshot,onClick:generate},busy?'Generating project…':'Generate Spring Boot with OpenAI'),h('p',null,'Requires backend approval of this exact design. Output includes source, tests, Dockerfile and review notes. Flow does not execute generated code.'),status&&h('p',{className:'status',role:'status'},status));
+ async function generate(){setBusy(true);setStatus('Generating the approved project with AI…');try{const result=await aiRequest('generate',{snapshot,token:approval.token,consent:true});const url=URL.createObjectURL(zipFiles(result.files)),link=document.createElement('a');link.href=url;link.download='ai-spring-boot-project.zip';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);setStatus('Downloaded AI-generated project. It has not been built or tested. '+result.summary+' Limitations: '+(result.limitations.join('; ')||'Review generated code and run its tests.'));}catch(e){setStatus(e.message);}finally{setBusy(false);}}
+ return h('div',{className:'ai-generation'},h('button',{disabled:busy||!approval?.token||approval.snapshot!==snapshot,onClick:generate},busy?'Generating project…':'Generate Spring Boot with AI'),h('p',null,'Requires backend approval of this exact design. Output includes source, tests, Dockerfile and review notes. Flow does not execute generated code.'),status&&h('p',{className:'status',role:'status'},status));
+}
+export function AIConfiguration(){
+ const [config,setConfig]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[checked,setChecked]=useState(''),[login,setLogin]=useState(null),[testResult,setTestResult]=useState('');
+ async function connect(){setBusy(true);setError('');try{setLogin(await aiRequest('connect',{}));}catch(e){setError(e.message);}finally{setBusy(false);}}
+ async function finishLogin(body){setBusy(true);setError('');try{setConfig(await aiRequest('finishLogin',body));}catch(e){setError(e.message);}finally{setBusy(false);}}
+ async function test(){setBusy(true);setError('');setTestResult('');try{setTestResult((await aiRequest('test',{})).message);}catch(e){setError(e.message);}finally{setBusy(false);}}
+ async function refresh(){setBusy(true);setError('');try{const response=await fetch('/api/ai/status');if(!response.ok)throw Error('Cannot read backend configuration. Start or restart Flow and try again.');setConfig(await response.json());setChecked(new Date().toLocaleTimeString());}catch(e){setConfig(null);setError(e.message);}finally{setBusy(false);}}
+ useEffect(()=>{refresh();},[]);
+ useEffect(()=>{if((!login&&!config?.loginPending)||config?.configured)return;const timer=setInterval(refresh,5000);return()=>clearInterval(timer);},[login,config?.configured,config?.loginPending]);
+ return h('section',{className:'panel'},h('span',{className:'badge'},'WORKSPACE SETTINGS'),h('h1',null,'Configuration'),h('p',null,'Manage the backend connection used for architecture analysis and code generation.'),h('h2',null,'AI connection'),
+ h('div',{className:'status',role:'status'},busy?'Checking connection…':error||(!config?'Connection status unavailable.':config.message)),
+ config&&h('dl',{className:'configuration-details'},h('dt',null,'Provider'),h('dd',null,config.provider),h('dt',null,'Model'),h('dd',null,config.model),h('dt',null,'Last checked'),h('dd',null,checked)),
+ h('p',null,'Refresh checks configuration and Copilot sign-in. Test connection sends a small AI request and consumes provider allowance.'),
+ h('button',{disabled:busy,onClick:refresh},busy?'Checking…':'Refresh AI connection'),
+ h('button',{className:'secondary',disabled:busy||!config?.configured,onClick:test,style:{marginLeft:12}},'Test connection'),
+ config?.provider==='GitHub Copilot'&&!config.configured&&h('button',{disabled:busy,onClick:connect,style:{marginLeft:12}},'Sign in to GitHub'),
+ config?.loginStep?.kind==='account-selection'&&h('div',{className:'status'},h('p',null,'Select the GitHub account to use with Flow:'),config.loginStep.accounts.map(a=>h('button',{key:a.selectionId,disabled:busy,onClick:()=>finishLogin({selectionId:a.selectionId})},a.login+' — '+a.host))),
+ config?.loginStep?.kind==='storage-consent'&&h('div',{className:'warning'},h('p',null,'GitHub authorization succeeded, but the SDK cannot save credentials in the system credential store. It asks to save your GitHub token unencrypted on this computer. Anyone with access to that file could use the token. Allow this only if you accept that risk.'),h('button',{disabled:busy,onClick:()=>finishLogin({storageConsent:true})},'Allow unencrypted storage'),h('button',{disabled:busy,onClick:()=>finishLogin({storageConsent:false})},'Decline')),
+ login&&!config?.configured&&!config?.loginStep&&h('div',{className:'status'},h('p',null,'Enter this one-time code on GitHub: '),h('strong',{style:{fontSize:24,letterSpacing:3}},login.userCode),h('p',null,h('a',{href:login.verificationUri,target:'_blank',rel:'noopener noreferrer'},'Open GitHub sign-in')),h('p',null,'Finish authorization in GitHub. This page checks sign-in automatically. If the code expires, click Sign in again.')),
+ testResult&&h('p',{role:'status',className:'status'},testResult),
+ h('h2',{style:{marginTop:28}},'Server settings'),h('p',null,'Set AI_PROVIDER=copilot for GitHub Copilot, or AI_PROVIDER=openai with OPENAI_API_KEY and OPENAI_MODEL in .env. Restart Flow after changing providers. Copilot uses Auto model selection by default. GitHub credentials are managed by the official SDK; API keys remain on the backend.'),
+ h('p',null,'Copilot Free has a limited personal-use allowance. Flow does not enable paid plans or automatically fall back to OpenAI when your allowance runs out.'),
+ h('p',null,'Design requests send the entered requirements to the configured AI provider. Legacy AI analysis sends the selected source files. Code generation sends the approved design and its inputs. Provider limits and usage charges may apply.'),
+ error&&h('p',{role:'alert',className:'warning'},error));
 }

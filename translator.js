@@ -67,9 +67,9 @@ export function compileProgram(file, flow, format) {
 }
 export function translationReport(files,report){
   const supported=[],blocked=[];
-  for(const flow of report.flows){
+  for(const flow of (report.staticFlows||report.flows)){
     try{
-      if(report.flows.filter(f=>f.file===flow.file).length!==1)throw Error('Multiple paragraphs require orchestration support.');
+      if((report.staticFlows||report.flows).filter(f=>f.file===flow.file).length!==1)throw Error('Multiple paragraphs require orchestration support.');
       const file=files.find(f=>f.name===flow.file);
       supported.push(compileProgram(file,flow,report.format||'fixed'));
     }catch(error){blocked.push({id:flow.file+':'+flow.name,reason:error.message});}

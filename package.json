@@ -1,1 +1,1 @@
-{"name":"legacy-flow-studio","private":true,"type":"module","engines":{"node":">=22"},"scripts":{"start":"node server.mjs","test":"node --test *.test.mjs"}}
+{"name":"legacy-flow-studio","private":true,"type":"module","engines":{"node":">=22"},"scripts":{"start":"node server.mjs","test":"node --test *.test.mjs"},"dependencies":{"@github/copilot-sdk":"1.0.32"}}

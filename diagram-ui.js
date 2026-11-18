@@ -71,8 +71,8 @@ function Graph({title,nodes,connections,direction='DOWN',notice}){
 export function BusinessDiagram({flow}){
  if(!flow)return h('p',null,'No flow evidence available.');
  const nodes=flow.nodes.map(n=>diagramNode('n'+n.id,n.label,n.decision?'Decision':n.terminal?'End':n.supported?'Operation':'Needs review',n.ref));
- const connections=flow.uncertain?[]:edges(flow).map(([a,b,label])=>({from:'n'+a,to:'n'+b,label}));
- return h(Graph,{title:flow.name+' · business flow',nodes,connections,notice:flow.uncertain?'Partial source map. Unsupported control flow requires review before connections can be shown.':null});
+ const connections=flow.uncertain?[]:flow.connections?flow.connections.map(e=>({from:'n'+e.from,to:'n'+e.to,label:e.label})):edges(flow).map(([a,b,label])=>({from:'n'+a,to:'n'+b,label}));
+ return h(Graph,{title:flow.name+' · business flow',nodes,connections,notice:flow.uncertain?(flow.limitations?.join(' ')||'Partial source map. Control flow requires review before connections can be shown.'):flow.origin==='OpenAI'?'AI interpretation: validate business behavior against the cited source.':null});
 }
 export function SystemMap({report,plan}){
  const nodes=[],connections=[],resources=new Map();
